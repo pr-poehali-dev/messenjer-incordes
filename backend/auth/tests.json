@@ -1,9 +1,8 @@
 {
   "tests": [
     {
-      "name": "Register new user",
+      "name": "Register new user with IncordesID",
       "method": "POST",
-      "path": "/",
       "body": {
         "action": "register",
         "email": "test@incordes.com",
@@ -12,17 +11,18 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "incordes_id": "string",
-        "email": "string",
-        "username": "string",
-        "tag": "string"
+        "token": "string",
+        "user": {
+          "incordes_id": "string",
+          "username": "string",
+          "email": "string"
+        }
       },
       "bodyMatcher": "partial"
     },
     {
-      "name": "Login user",
+      "name": "Login returns JWT token",
       "method": "POST",
-      "path": "/",
       "body": {
         "action": "login",
         "email": "test@incordes.com",
@@ -30,9 +30,10 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "incordes_id": "string",
-        "email": "string",
-        "username": "string"
+        "token": "string",
+        "user": {
+          "incordes_id": "string"
+        }
       },
       "bodyMatcher": "partial"
     }

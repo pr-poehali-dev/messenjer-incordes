@@ -1,144 +1,143 @@
 '''
-Business: Handle chat messages - send and retrieve messages from channels
-Args: event - dict with httpMethod, body, queryStringParameters
-      context - object with attributes: request_id
-Returns: HTTP response with message data
+Business: Real-time messaging API for channels and DMs
+Args: event with httpMethod, body, headers (Authorization)
+Returns: Messages, DM channels
 '''
+
 import json
 import os
-import secrets
 import psycopg2
+from psycopg2.extras import RealDictCursor
+import jwt
 from typing import Dict, Any
 
-def generate_message_id() -> str:
-    return f"MSG{secrets.token_hex(8).upper()}"
+DATABASE_URL = os.environ.get('DATABASE_URL')
+JWT_SECRET = 'incordes_secret_key_2024_change_in_production'
+
+def verify_token(auth_header: str):
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return payload.get('user_id')
+    except:
+        return None
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    method: str = event.get('httpMethod', 'GET')
+    method = event.get('httpMethod', 'GET')
     
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 'Access-Control-Max-Age': '86400'
             },
             'body': ''
         }
     
+    user_id = verify_token(event.get('headers', {}).get('Authorization', ''))
+    if not user_id:
+        return {
+            'statusCode': 401,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Unauthorized'})
+        }
+    
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
     try:
-        conn = psycopg2.connect(os.environ['DATABASE_URL'])
-        cur = conn.cursor()
-        
-        if method == 'GET':
-            params = event.get('queryStringParameters', {})
-            channel_id = params.get('channel_id') if params else None
-            
-            if not channel_id:
-                return {
-                    'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'channel_id required'})
-                }
-            
-            cur.execute(
-                """SELECT c.id FROM channels c WHERE c.channel_id = %s""",
-                (channel_id,)
-            )
-            channel = cur.fetchone()
-            
-            if not channel:
-                return {
-                    'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Channel not found'})
-                }
-            
-            cur.execute(
-                """SELECT m.message_id, m.content, m.created_at, u.username, u.tag, u.avatar_url
-                   FROM messages m
-                   JOIN users u ON m.user_id = u.id
-                   WHERE m.channel_id = %s
-                   ORDER BY m.created_at DESC
-                   LIMIT 50""",
-                (channel[0],)
-            )
-            messages = cur.fetchall()
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps([{
-                    'message_id': m[0],
-                    'content': m[1],
-                    'created_at': str(m[2]),
-                    'author': {
-                        'username': m[3],
-                        'tag': m[4],
-                        'avatar_url': m[5]
-                    }
-                } for m in messages])
-            }
-        
         if method == 'POST':
-            body_data = json.loads(event.get('body', '{}'))
-            channel_id = body_data.get('channel_id')
-            user_id = body_data.get('user_id')
-            content = body_data.get('content', '')
+            body = json.loads(event.get('body', '{}'))
+            action = body.get('action')
             
-            if not channel_id or not user_id or not content:
+            if action == 'send':
+                channel_id = body.get('channel_id')
+                content = body.get('content', '')
+                
+                cursor.execute(
+                    """INSERT INTO messages (message_id, channel_id, user_id, content) 
+                       VALUES (%s, %s, %s, %s) 
+                       RETURNING id, message_id, content, created_at""",
+                    (f"M{int(os.urandom(4).hex(), 16)}", channel_id, user_id, content)
+                )
+                message = dict(cursor.fetchone())
+                conn.commit()
+                
+                cursor.execute(
+                    "SELECT username, discriminator, incordes_id, avatar_url FROM users WHERE id = %s",
+                    (user_id,)
+                )
+                author = dict(cursor.fetchone())
+                message['author'] = author
+                
                 return {
-                    'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'channel_id, user_id and content required'})
+                    'statusCode': 200,
+                    'headers': {'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(message)
                 }
             
-            cur.execute(
-                """SELECT c.id FROM channels c WHERE c.channel_id = %s""",
-                (channel_id,)
-            )
-            channel = cur.fetchone()
-            
-            if not channel:
+            elif action == 'get_dm':
+                friend_id = body.get('friend_id')
+                
+                cursor.execute(
+                    """SELECT c.* FROM channels c 
+                       WHERE c.is_dm = TRUE 
+                       AND ((c.user_id = %s AND c.server_id = %s) OR (c.user_id = %s AND c.server_id = %s))
+                       LIMIT 1""",
+                    (user_id, friend_id, friend_id, user_id)
+                )
+                channel = cursor.fetchone()
+                
+                if not channel:
+                    cursor.execute(
+                        """INSERT INTO channels (channel_id, name, type, is_dm, user_id, server_id) 
+                           VALUES (%s, %s, %s, %s, %s, %s) 
+                           RETURNING id, channel_id""",
+                        (f"DM{int(os.urandom(4).hex(), 16)}", 'Direct Message', 'direct', True, user_id, friend_id)
+                    )
+                    channel = cursor.fetchone()
+                    conn.commit()
+                
                 return {
-                    'statusCode': 404,
-                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Channel not found'})
+                    'statusCode': 200,
+                    'headers': {'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(dict(channel))
                 }
-            
-            message_id = generate_message_id()
-            
-            cur.execute(
-                "INSERT INTO messages (message_id, channel_id, user_id, content) VALUES (%s, %s, %s, %s) RETURNING message_id, content, created_at",
-                (message_id, channel[0], user_id, content)
-            )
-            message = cur.fetchone()
-            conn.commit()
-            
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({
-                    'message_id': message[0],
-                    'content': message[1],
-                    'created_at': str(message[2])
-                })
-            }
         
-        cur.close()
-        conn.close()
+        elif method == 'GET':
+            params = event.get('queryStringParameters', {}) or {}
+            channel_id = params.get('channel_id')
+            limit = int(params.get('limit', 50))
+            
+            if channel_id:
+                cursor.execute(
+                    """SELECT m.*, u.username, u.discriminator, u.incordes_id, u.avatar_url 
+                       FROM messages m 
+                       JOIN users u ON m.user_id = u.id 
+                       WHERE m.channel_id = %s 
+                       ORDER BY m.created_at DESC 
+                       LIMIT %s""",
+                    (channel_id, limit)
+                )
+                messages = [dict(row) for row in cursor.fetchall()]
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'messages': messages})
+                }
         
         return {
             'statusCode': 405,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'headers': {'Access-Control-Allow-Origin': '*'},
             'body': json.dumps({'error': 'Method not allowed'})
         }
-        
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': str(e)})
-        }
+    
+    finally:
+        cursor.close()
+        conn.close()

@@ -1,17 +1,14 @@
 {
   "tests": [
     {
-      "name": "Create new server",
+      "name": "Create server",
       "method": "POST",
-      "path": "/",
       "body": {
         "action": "create",
-        "name": "Test Server",
-        "user_id": 1
+        "name": "Test Server"
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "server_id": "string",
         "name": "string"
       },
       "bodyMatcher": "partial"

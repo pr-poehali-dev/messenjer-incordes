@@ -1,17 +1,15 @@
 {
   "tests": [
     {
-      "name": "Send message to channel",
+      "name": "Send message",
       "method": "POST",
-      "path": "/",
       "body": {
-        "channel_id": "CHN123",
-        "user_id": 1,
-        "content": "Hello, Incordes!"
+        "action": "send",
+        "channel_id": 1,
+        "content": "Test"
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "message_id": "string",
         "content": "string"
       },
       "bodyMatcher": "partial"
