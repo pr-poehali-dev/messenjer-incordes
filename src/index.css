@@ -35,58 +35,72 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Discord-like colors (light theme fallback) */
+    --discord-bg: 0 0% 100%;
+    --discord-sidebar: 220 13% 18%;
+    --discord-secondary: 223 7% 20%;
+    --discord-tertiary: 225 6% 23%;
+    --discord-accent: 235 86% 65%;
+    --discord-text-primary: 0 0% 100%;
+    --discord-text-secondary: 216 4% 74%;
+    --discord-input: 228 6% 32%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 223 7% 17%;
+    --foreground: 0 0% 100%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 223 7% 17%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 225 6% 13%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 235 86% 65%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 223 7% 20%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 228 6% 32%;
+    --muted-foreground: 216 4% 74%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 235 86% 65%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 228 6% 32%;
+    --input: 228 6% 32%;
+    --ring: 235 86% 65%;
+
+    --sidebar-background: 220 13% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 235 86% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 223 7% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 228 6% 32%;
+    --sidebar-ring: 235 86% 65%;
+
+    /* Discord-like colors (dark theme) */
+    --discord-bg: 223 7% 17%;
+    --discord-sidebar: 220 13% 18%;
+    --discord-secondary: 223 7% 20%;
+    --discord-tertiary: 225 6% 23%;
+    --discord-accent: 235 86% 65%;
+    --discord-text-primary: 0 0% 100%;
+    --discord-text-secondary: 216 4% 74%;
+    --discord-input: 228 6% 32%;
   }
 }
 
@@ -96,6 +110,25 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#2B2D31] text-foreground;
   }
+}
+
+/* Custom scrollbar styles for Discord-like appearance */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(228 6% 32%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(228 6% 40%);
 }
